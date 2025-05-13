@@ -3,15 +3,18 @@
  */
 (function () {
   // 可配置参数
-  const CONFIG = {
-    minRefreshInterval: 120000, // 最小刷新间隔（毫秒）
-    maxRefreshInterval: 180000, // 最大刷新间隔（毫秒）
-    maxRefreshCount: 5, // 每个广告最多刷新次数
-    viewportThreshold: 0.7, // 元素需要在视口中显示的比例才触发刷新
-    containerSelector: ".auto-refresh-gad", // 广告容器选择器
-    stabilizationDelay: 2000, // 广告加载后稳定化延迟（毫秒）
-    debug: false, // 是否启用调试日志
-  };
+  const CONFIG = Object.assign(
+    {
+      minRefreshInterval: 120000, // 最小刷新间隔（毫秒）
+      maxRefreshInterval: 180000, // 最大刷新间隔（毫秒）
+      maxRefreshCount: 5, // 每个广告最多刷新次数
+      viewportThreshold: 0.7, // 元素需要在视口中显示的比例才触发刷新
+      containerSelector: ".auto-refresh-gad", // 广告容器选择器
+      stabilizationDelay: 2000, // 广告加载后稳定化延迟（毫秒）
+      debug: false, // 是否启用调试日志
+    },
+    window.CONFIG || {}
+  );
 
   let refreshTimeout = null;
   let isInitialized = false;
