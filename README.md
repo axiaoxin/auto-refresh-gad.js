@@ -101,15 +101,15 @@ Google AdSense 政策明文禁止以下行为：
 
 ```javascript
 const CONFIG = {
-  minRefreshInterval: 120000, // 最小刷新间隔（毫秒）
-  maxRefreshInterval: 180000, // 最大刷新间隔（毫秒）
-  maxRefreshCount: 10, // 每个广告最多刷新次数
-  viewportThreshold: 0.6, // 元素需要在视口中显示的比例才触发刷新
-  containerSelector: ".auto-refresh-gad", // 广告容器选择器
-  stabilizationDelay: 2000, // 广告加载后稳定化延迟（毫秒）
+  minRefreshInterval: 30000, // 最小刷新间隔（毫秒）
+  maxRefreshInterval: 60000, // 最大刷新间隔（毫秒）
+  maxRefreshCount: 20, // 每个广告最多刷新次数，设置为-1表示无限制
+  viewportThreshold: 0.45, // 元素需要在视口中显示的比例才触发刷新
+  containerSelector: ".auto-refresh-gad", // 广告容器选择器，可以使用逗号分隔多个选择器，如".ad1, .ad2, #special-ad"
   debug: true, // 是否启用调试日志
-  requireUserInteraction: false, // 是否需要用户交互后才初始化（默认否）
+  requireUserInteraction: false, // 是否需要用户交互后才初始化
   initializationDelay: 5000, // 无交互时初始化延迟（毫秒），等待广告加载
+  logLevel: "info", // 日志级别：'error', 'warn', 'info'
 };
 ```
 

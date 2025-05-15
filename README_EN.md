@@ -101,15 +101,15 @@ The default parameters are set conservatively. To customize, edit the `CONFIG` o
 
 ```javascript
 const CONFIG = {
-  minRefreshInterval: 120000, // Minimum interval in ms (e.g. 2 mins)
-  maxRefreshInterval: 180000, // Maximum interval in ms
-  maxRefreshCount: 10, // Max number of refreshes per ad
-  viewportThreshold: 0.6, // % of ad visible in viewport (0–1)
-  containerSelector: ".auto-refresh-gad", // Ad container selector
-  stabilizationDelay: 2000, // Delay after ad load before refresh (ms)
+  minRefreshInterval: 30000, // Minimum interval in ms (e.g. 30 secs)
+  maxRefreshInterval: 60000, // Maximum interval in ms (e.g. 1 min)
+  maxRefreshCount: 20, // Max number of refreshes per ad, set to -1 for unlimited
+  viewportThreshold: 0.45, // % of ad visible in viewport (0–1)
+  containerSelector: ".auto-refresh-gad", // Ad container selector, can use comma to separate multiple selectors, e.g. ".ad1, .ad2, #special-ad"
   debug: true, // Enable console debug logs
-  requireUserInteraction: false, // Require user interaction before initialization (default: false)
-  initializationDelay: 5000, // Initialization delay when no interaction (ms), waits for ads to load
+  requireUserInteraction: false, // Require user interaction before initialization
+  initializationDelay: 5000, // Initialization delay when no interaction (ms)
+  logLevel: "info", // Log level: 'error', 'warn', 'info'
 };
 ```
 
