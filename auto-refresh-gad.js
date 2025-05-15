@@ -12,12 +12,15 @@
       containerSelector: ".auto-refresh-gad", // 广告容器选择器
       stabilizationDelay: 2000, // 广告加载后稳定化延迟（毫秒）
       debug: false, // 是否启用调试日志
+      requireUserInteraction: false, // 是否需要用户交互后才初始化
     },
     window.CONFIG || {}
   );
 
   let refreshTimeout = null;
   let isInitialized = false;
+  let pauseTime = 0;
+  let remainingTime = 0;
 
   // 日志工具
   const Logger = {
@@ -154,11 +157,26 @@
 
     const adContainers = document.querySelectorAll(CONFIG.containerSelector);
     let refreshedCount = 0;
+    let visibleNotRefreshed = false;
 
     adContainers.forEach((container) => {
-      if (canRefreshAd(container)) {
-        if (refreshAdContainer(container)) {
-          refreshedCount++;
+      // 检查是否在视口中足够可见
+      const isVisible = isElementVisibleEnough(container);
+      
+      // 更新容器可见状态，用于跟踪新出现在视口中的广告
+      const wasVisible = container.dataset.wasVisible === "true";
+      container.dataset.wasVisible = isVisible.toString();
+      
+      // 如果广告在视口中可见但还未达到最大刷新次数
+      const refreshCount = parseInt(container.dataset.refreshCount || "0", 10);
+      if (isVisible && refreshCount < CONFIG.maxRefreshCount) {
+        if (canRefreshAd(container)) {
+          if (refreshAdContainer(container)) {
+            refreshedCount++;
+          }
+        } else {
+          // 记录有可见但未刷新的广告
+          visibleNotRefreshed = true;
         }
       }
     });
@@ -169,34 +187,74 @@
       Logger.warn("本轮没有广告容器需要刷新");
     }
 
-    scheduleNextRefresh();
+    scheduleNextRefresh(visibleNotRefreshed);
   }
 
   // 安排下一次刷新
-  function scheduleNextRefresh() {
+  function scheduleNextRefresh(hasVisibleNotRefreshed) {
     if (refreshTimeout) clearTimeout(refreshTimeout);
 
-    // 检查是否有可刷新的广告容器
+    // 检查是否有可刷新的广告容器（考虑视口可见性）
     const adContainers = document.querySelectorAll(CONFIG.containerSelector);
-    const hasRefreshable = Array.from(adContainers).some((container) => {
+    const hasRefreshable = hasVisibleNotRefreshed || Array.from(adContainers).some((container) => {
       const refreshCount = parseInt(container.dataset.refreshCount || "0", 10);
-      return refreshCount < CONFIG.maxRefreshCount;
+      const isVisible = isElementVisibleEnough(container);
+      return refreshCount < CONFIG.maxRefreshCount && isVisible;
     });
 
     if (!hasRefreshable) {
-      Logger.info("所有广告容器均已刷新完毕，停止刷新");
+      Logger.info("没有可刷新的广告容器在视口中，暂停刷新");
+      
+      // 添加滚动监听，当视口改变时重新评估
+      if (!window._adScrollHandler) {
+        window._adScrollHandler = debounce(() => {
+          // 当用户滚动后，检查是否有新的广告出现在视口中
+          const hasNewVisible = Array.from(document.querySelectorAll(CONFIG.containerSelector)).some(
+            container => {
+              const refreshCount = parseInt(container.dataset.refreshCount || "0", 10);
+              return refreshCount < CONFIG.maxRefreshCount && isElementVisibleEnough(container);
+            }
+          );
+          
+          if (hasNewVisible && !refreshTimeout) {
+            Logger.info("检测到新的广告单元在视口中，恢复刷新");
+            scheduleNextRefresh(true);
+          }
+        }, 300);
+        
+        window.addEventListener("scroll", window._adScrollHandler);
+      }
       return;
     }
 
-    // 随机刷新间隔
-    const interval =
+    // 使用剩余时间或计算新的随机间隔
+    let interval = remainingTime > 0 ? remainingTime : (
       Math.floor(
         Math.random() *
           (CONFIG.maxRefreshInterval - CONFIG.minRefreshInterval + 1)
-      ) + CONFIG.minRefreshInterval;
+      ) + CONFIG.minRefreshInterval
+    );
+    
+    remainingTime = 0;
 
     refreshTimeout = setTimeout(refreshAds, interval);
-    Logger.info(`下一次广告刷新将在 ${Math.round(interval / 1000)} 秒后`);
+    
+    // 计算下次刷新的具体时间
+    const nextRefreshTime = new Date(Date.now() + interval);
+    const formattedTime = nextRefreshTime.toLocaleTimeString();
+    
+    Logger.info(`下一次广告刷新将在 ${Math.round(interval / 1000)} 秒后 (${formattedTime})`);
+  }
+
+  // 防抖函数，避免滚动事件频繁触发
+  function debounce(func, wait) {
+    let timeout;
+    return function() {
+      const context = this;
+      const args = arguments;
+      clearTimeout(timeout);
+      timeout = setTimeout(() => func.apply(context, args), wait);
+    };
   }
 
   // 页面可见性变化处理
@@ -205,11 +263,23 @@
       if (refreshTimeout) {
         clearTimeout(refreshTimeout);
         refreshTimeout = null;
+        
+        // 记录暂停时间和剩余时间
+        pauseTime = Date.now();
+        // 对于剩余时间，我们需要获取当前的计时器剩余时间
+        // 这里采用一个简化方法，记录当前暂停时刻
+        Logger.info("页面不可见，暂停广告刷新计时");
       }
-      Logger.info("页面不可见，暂停广告刷新计时");
     } else {
       if (!refreshTimeout && isInitialized) {
-        Logger.info("页面重新可见，恢复广告刷新计时");
+        // 计算已经经过的时间，继续之前的计时
+        if (pauseTime > 0) {
+          const elapsedSincePause = Date.now() - pauseTime;
+          remainingTime = Math.max(0, remainingTime - elapsedSincePause);
+          pauseTime = 0;
+        }
+        
+        Logger.info(`页面重新可见，继续广告刷新计时，剩余 ${Math.round(remainingTime / 1000)} 秒`);
         scheduleNextRefresh();
       }
     }
@@ -237,6 +307,12 @@
 
   // 监听滚动事件，用户滚动后初始化
   function waitForUserInteraction() {
+    if (!CONFIG.requireUserInteraction) {
+      Logger.info("无需用户交互，直接初始化广告刷新逻辑");
+      initAdRefresh();
+      return;
+    }
+    
     // 同时监听滚动和点击事件，任一触发都初始化
     function onInteractOnce() {
       window.removeEventListener("scroll", onInteractOnce);

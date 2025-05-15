@@ -36,7 +36,7 @@ Google AdSense 政策明文禁止以下行为：
 - 操作脚本干预广告展示行为
 - 任何形式的欺诈性流量生成或伪造用户行为
 
-虽然 `auto-refresh-gad.js` 设计上避免了点击欺诈、强制刷新等行为，但**Google 使用高度自动化的风控系统**，可识别包括重复加载、可疑刷新节奏等“非自然行为”，因此你仍有以下风险：
+虽然 `auto-refresh-gad.js` 设计上避免了点击欺诈、强制刷新等行为，但**Google 使用高度自动化的风控系统**，可识别包括重复加载、可疑刷新节奏等"非自然行为"，因此你仍有以下风险：
 
 > ⚠️ 使用本脚本可能会：
 >
@@ -108,6 +108,7 @@ const CONFIG = {
   containerSelector: ".auto-refresh-gad", // 广告容器选择器
   stabilizationDelay: 2000, // 广告加载后稳定化延迟（毫秒）
   debug: true, // 是否启用调试日志
+  requireUserInteraction: false, // 是否需要用户交互后才初始化（默认否）
 };
 ```
 

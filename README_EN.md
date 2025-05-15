@@ -108,6 +108,7 @@ const CONFIG = {
   containerSelector: ".auto-refresh-gad", // Ad container selector
   stabilizationDelay: 2000, // Delay after ad load before refresh (ms)
   debug: true, // Enable console debug logs
+  requireUserInteraction: false, // Require user interaction before initialization (default: false)
 };
 ```
 
