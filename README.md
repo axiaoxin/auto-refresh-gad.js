@@ -109,6 +109,7 @@ const CONFIG = {
   stabilizationDelay: 2000, // 广告加载后稳定化延迟（毫秒）
   debug: true, // 是否启用调试日志
   requireUserInteraction: false, // 是否需要用户交互后才初始化（默认否）
+  initializationDelay: 5000, // 无交互时初始化延迟（毫秒），等待广告加载
 };
 ```
 

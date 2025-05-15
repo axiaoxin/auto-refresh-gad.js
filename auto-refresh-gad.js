@@ -10,9 +10,9 @@
       maxRefreshCount: 5, // 每个广告最多刷新次数
       viewportThreshold: 0.7, // 元素需要在视口中显示的比例才触发刷新
       containerSelector: ".auto-refresh-gad", // 广告容器选择器
-      stabilizationDelay: 2000, // 广告加载后稳定化延迟（毫秒）
       debug: false, // 是否启用调试日志
       requireUserInteraction: false, // 是否需要用户交互后才初始化
+      initializationDelay: 5000, // 无交互时初始化延迟（毫秒）
     },
     window.CONFIG || {}
   );
@@ -131,7 +131,7 @@
                 `广告容器 ID:${container.id || "未知"} 刷新后可能未成功加载`
               );
             }
-          }, CONFIG.stabilizationDelay);
+          }, 2000);
 
           return true;
         } catch (e) {
@@ -158,6 +158,7 @@
     const adContainers = document.querySelectorAll(CONFIG.containerSelector);
     let refreshedCount = 0;
     let visibleNotRefreshed = false;
+    let refreshDetails = [];
 
     adContainers.forEach((container) => {
       // 检查是否在视口中足够可见
@@ -173,6 +174,11 @@
         if (canRefreshAd(container)) {
           if (refreshAdContainer(container)) {
             refreshedCount++;
+            // 记录刷新详情
+            const currentCount = parseInt(container.dataset.refreshCount || "0", 10);
+            const remainingCount = CONFIG.maxRefreshCount - currentCount;
+            const containerId = container.id || `广告${refreshedCount}`;
+            refreshDetails.push(`${containerId}(第${currentCount}次，剩余${remainingCount}次)`);
           }
         } else {
           // 记录有可见但未刷新的广告
@@ -182,12 +188,38 @@
     });
 
     if (refreshedCount > 0) {
-      Logger.info(`成功刷新 ${refreshedCount} 个广告容器`);
+      Logger.info(`成功刷新 ${refreshedCount} 个广告容器: ${refreshDetails.join(", ")}`);
     } else {
       Logger.warn("本轮没有广告容器需要刷新");
     }
 
     scheduleNextRefresh(visibleNotRefreshed);
+  }
+
+  // 页面可见性变化处理
+  function handleVisibilityChange() {
+    if (document.hidden) {
+      if (refreshTimeout) {
+        clearTimeout(refreshTimeout);
+        refreshTimeout = null;
+        
+        // 记录暂停时间和剩余时间
+        pauseTime = Date.now();
+        
+        // 计算并记录当前计时器的剩余时间
+        const nextRefreshTime = parseInt(window._nextRefreshTime || "0", 10);
+        if (nextRefreshTime) {
+          remainingTime = Math.max(0, nextRefreshTime - Date.now());
+        }
+        
+        Logger.info("页面不可见，暂停广告刷新计时");
+      }
+    } else {
+      if (!refreshTimeout && isInitialized) {
+        Logger.info("页面重新可见，恢复广告刷新计时");
+        scheduleNextRefresh();
+      }
+    }
   }
 
   // 安排下一次刷新
@@ -236,11 +268,14 @@
     );
     
     remainingTime = 0;
+    
+    // 记录下次刷新的时间点，用于计算剩余时间
+    window._nextRefreshTime = Date.now() + interval;
 
     refreshTimeout = setTimeout(refreshAds, interval);
     
     // 计算下次刷新的具体时间
-    const nextRefreshTime = new Date(Date.now() + interval);
+    const nextRefreshTime = new Date(window._nextRefreshTime);
     const formattedTime = nextRefreshTime.toLocaleTimeString();
     
     Logger.info(`下一次广告刷新将在 ${Math.round(interval / 1000)} 秒后 (${formattedTime})`);
@@ -255,34 +290,6 @@
       clearTimeout(timeout);
       timeout = setTimeout(() => func.apply(context, args), wait);
     };
-  }
-
-  // 页面可见性变化处理
-  function handleVisibilityChange() {
-    if (document.hidden) {
-      if (refreshTimeout) {
-        clearTimeout(refreshTimeout);
-        refreshTimeout = null;
-        
-        // 记录暂停时间和剩余时间
-        pauseTime = Date.now();
-        // 对于剩余时间，我们需要获取当前的计时器剩余时间
-        // 这里采用一个简化方法，记录当前暂停时刻
-        Logger.info("页面不可见，暂停广告刷新计时");
-      }
-    } else {
-      if (!refreshTimeout && isInitialized) {
-        // 计算已经经过的时间，继续之前的计时
-        if (pauseTime > 0) {
-          const elapsedSincePause = Date.now() - pauseTime;
-          remainingTime = Math.max(0, remainingTime - elapsedSincePause);
-          pauseTime = 0;
-        }
-        
-        Logger.info(`页面重新可见，继续广告刷新计时，剩余 ${Math.round(remainingTime / 1000)} 秒`);
-        scheduleNextRefresh();
-      }
-    }
   }
 
   // 初始化刷新逻辑
@@ -308,8 +315,10 @@
   // 监听滚动事件，用户滚动后初始化
   function waitForUserInteraction() {
     if (!CONFIG.requireUserInteraction) {
-      Logger.info("无需用户交互，直接初始化广告刷新逻辑");
-      initAdRefresh();
+      Logger.info(`无需用户交互，将在 ${Math.round(CONFIG.initializationDelay / 1000)} 秒后初始化广告刷新逻辑`);
+      setTimeout(() => {
+        initAdRefresh();
+      }, CONFIG.initializationDelay);
       return;
     }
     

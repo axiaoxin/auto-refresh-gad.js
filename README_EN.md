@@ -109,6 +109,7 @@ const CONFIG = {
   stabilizationDelay: 2000, // Delay after ad load before refresh (ms)
   debug: true, // Enable console debug logs
   requireUserInteraction: false, // Require user interaction before initialization (default: false)
+  initializationDelay: 5000, // Initialization delay when no interaction (ms), waits for ads to load
 };
 ```
 
